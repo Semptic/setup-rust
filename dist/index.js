@@ -63326,9 +63326,10 @@ function loadInputs() {
 function loadFromEnvironment() {
     core.info('Loading toolchain config from environment variables');
     const toolchain = {};
-    Object.assign(toolchain, {
-        channel: process.env.RUSTUP_TOOLCHAIN,
-    });
+    const channel = process.env.RUSTUP_TOOLCHAIN;
+    if (channel) {
+        toolchain.channel = channel;
+    }
     return toolchain;
 }
 async function installToolchain() {
