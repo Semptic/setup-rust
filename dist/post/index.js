@@ -63318,12 +63318,19 @@ function loadFromEnvironment() {
 }
 async function installToolchain() {
     const toolchain = { ...DEFAULT_TOOLCHAIN };
+    core.info(JSON.stringify(toolchain));
     const config = loadToolchainConfigFile();
+    core.info(JSON.stringify(config));
     Object.assign(toolchain, config);
+    core.info(JSON.stringify(toolchain));
     const environment = loadFromEnvironment();
+    core.info(JSON.stringify(environment));
     Object.assign(toolchain, environment);
+    core.info(JSON.stringify(toolchain));
     const inputs = loadInputs();
+    core.info(JSON.stringify(inputs));
     Object.assign(toolchain, inputs);
+    core.info(JSON.stringify(toolchain));
     core.info('Installing toolchain with rustup');
     const args = ['toolchain', 'install', toolchain.channel, '--profile', toolchain.profile];
     toolchain.targets.forEach((target) => {
