@@ -24,13 +24,7 @@ configuration files. To specify the location of the toolchain configuration file
 [toolchain]
 channel = "1.68.0"
 ```
-
-> When loading a configuration file, only the `channel` field is used, while the other fields are
-> ignored. We chose this approach, as those other fields are typically for develop/release
-> workflows, but not for CI, which requires a minimal/granular setup.
-
-The toolchain/channel can also be explicitly configured with the `toolchain` input, which takes
-highest precedence.
+The fields can also be explicitly configured with input, which takes highest precedence.
 
 ```yaml
 - uses: moonrepo/setup-rust@v0

@@ -72,7 +72,7 @@ export function parseConfig(configPath: string): Partial<Toolchain> {
 	if (config.toolchain.channel) {
 		core.debug('Found channel in [toolchain] section');
 
-		return { channel: config.toolchain.channel };
+		return config.toolchain;
 	}
 
 	core.debug('No channel found in [toolchain] section');
@@ -81,43 +81,36 @@ export function parseConfig(configPath: string): Partial<Toolchain> {
 }
 
 // https://rust-lang.github.io/rustup/overrides.html
-export function detectToolchain(): Toolchain {
-	core.info('Detecting toolchain');
+function loadToolchainConfigFile(): Partial<Toolchain> {
+	core.info('Try loading rust-toolchain file');
+	const toolchainFile = core.getInput('rust-toolchain-file');
 
-	const toolchain = { ...DEFAULT_TOOLCHAIN };
+	if (toolchainFile) {
+		if (fs.existsSync(toolchainFile)) {
+			return parseConfig(toolchainFile);
+		}
 
-	if (process.env.RUSTUP_TOOLCHAIN) {
-		core.info('Using toolchain from RUSTUP_TOOLCHAIN environment variable');
+		core.setFailed('Not found toolchain config file');
+		throw new Error('Not found toolchain config file');
+	}
 
-		Object.assign(toolchain, {
-			channel: process.env.RUSTUP_TOOLCHAIN,
-		});
-	} else {
-		core.info('Loading rust-toolchain.toml or rust-toolchain file');
-		const toolchainFile = core.getInput('rust-toolchain-file');
+	for (const configName of ['rust-toolchain.toml', 'rust-toolchain']) {
+		const configPath = path.join(process.cwd(), configName);
 
-		if (toolchainFile) {
-			if (fs.existsSync(toolchainFile)) {
-				Object.assign(toolchain, parseConfig(toolchainFile));
-			} else {
-				core.setFailed('Not found toolchain config file');
-				throw new Error('Not found toolchain config file');
-			}
-		} else {
-			for (const configName of ['rust-toolchain.toml', 'rust-toolchain']) {
-				const configPath = path.join(process.cwd(), configName);
+		if (fs.existsSync(configPath)) {
+			core.debug(`Found ${configName}, parsing TOML`);
 
-				if (fs.existsSync(configPath)) {
-					core.debug(`Found ${configName}, parsing TOML`);
-
-					Object.assign(toolchain, parseConfig(configPath));
-					break;
-				}
-			}
+			return parseConfig(toolchainFile);
 		}
 	}
 
+	return {};
+}
+
+function loadInputs(): Partial<Toolchain> {
 	core.info('Inheriting toolchain settings from inputs');
+
+	const toolchain: Partial<Toolchain> = {};
 
 	(Object.keys(DEFAULT_TOOLCHAIN) as (keyof typeof DEFAULT_TOOLCHAIN)[]).forEach((key) => {
 		const input = core.getInput(key);
@@ -127,7 +120,10 @@ export function detectToolchain(): Toolchain {
 
 			if (key === 'components' || key === 'targets') {
 				input.split(',').forEach((part) => {
-					toolchain[key].push(part.trim());
+					if (!(key in toolchain)) {
+						toolchain[key] = [];
+					}
+					toolchain[key]?.push(part.trim());
 				});
 			} else {
 				toolchain[key] = input;
@@ -138,8 +134,28 @@ export function detectToolchain(): Toolchain {
 	return toolchain;
 }
 
+function loadFromEnvironment() {
+	core.info('Loading toolchain config from environment variables')
+	const toolchain: Partial<Toolchain> = {};
+
+	Object.assign(toolchain, {
+		channel: process.env.RUSTUP_TOOLCHAIN,
+	});
+
+	return toolchain;
+}
+
 export async function installToolchain() {
-	const toolchain = detectToolchain();
+	const toolchain = { ...DEFAULT_TOOLCHAIN };
+
+	const config = loadToolchainConfigFile()
+	Object.assign(toolchain, config);
+
+	const environment = loadFromEnvironment();
+	Object.assign(toolchain, environment);
+
+	const inputs = loadInputs();
+	Object.assign(toolchain, inputs);
 
 	core.info('Installing toolchain with rustup');
 
